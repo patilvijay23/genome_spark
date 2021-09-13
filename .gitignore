@@ -130,3 +130,6 @@ dmypy.json
 
 # parquet files
 *.parquet*
+
+# brain_counts.csv
+brain_counts.csv
