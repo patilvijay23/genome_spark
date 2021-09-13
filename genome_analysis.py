@@ -1,0 +1,64 @@
+# working file for using the genome_spark modules to analyze genome data
+# dataframes are written to disk at various stages: use these to skip starting steps when required by loading pre-processed df
+
+import pyspark.sql.functions as F
+
+import pandas as pd
+
+from data_load import read_spark
+from data_filter import qc_matrix_cells, qc_matrix_genes, filter_matrix
+from data_normalize import norm_quantile, norm_global
+
+path_to_file = "./data/brain_counts.csv"
+
+# load csv data
+df, df_melt = read_spark(path_to_file)
+
+# or, read pre-loaded data written to disk
+df= spark.read.parquet('./interim/df/')
+df_melt = spark.read.parquet('./interim/df_melt/')
+
+# qc cells & write csv to `analyses` folder
+df_qc_cells = qc_matrix_cells(df_melt)
+df_qc_cells.toPandas().to_csv('./analyses/qc_cells.csv', index=False)
+
+# qc genes & write csv to `analyses` folder
+df_qc_genes = qc_matrix_genes(df_melt)
+df_qc_genes.toPandas().to_csv('./analyses/qc_genes.csv', index=False)
+
+# filter the genome data using output from the above two qc fns
+df_melt_flt = filter_matrix(df_melt,None,df_qc_genes)
+
+# write filtered df_melt to drive
+df_melt_flt.write.parquet('./interim/df_melt_flt/', mode='overwrite')
+df_melt_flt = spark.read.parquet('./interim/df_melt_flt/')
+
+# count check
+{'cells':df_melt_flt.select('cell').drop_duplicates().count(),
+'genes':df_melt_flt.select('variable').drop_duplicates().count()}
+
+# Normalization
+df_norm = norm_quantile(df_melt_flt)
+
+# write norm df to drive
+df_norm.write.parquet('./interim/df_norm/', mode='overwrite')
+df_norm = spark.read.parquet('./interim/df_norm/')
+
+# df_norm_g = norm_global(df_melt_flt)
+# df_norm_g.write.parquet('./interim/df_norm_g/', mode='overwrite')
+# df_norm_g = spark.read.parquet('./interim/df_norm_g/')
+
+# PCA
+
+
+# clustering
+
+
+##
+# QC checks on the data flow
+# take data for selected cells and genes from df_melt and compare against values in df_qc_*
+cells_to_qc = ['D1.MAA000560.3_10_M.1.1','D18.MAA000935.3_8_M.1.1']
+genes_to_qc = ['Rnaseh2b','Suclg1']
+
+df_qc = df_melt.where((F.col('cell').isin(cells_to_qc)) | (F.col('variable').isin(genes_to_qc)))
+df_qc.toPandas().to_csv('./analyses/qc_flow_checks.csv', index=False)
