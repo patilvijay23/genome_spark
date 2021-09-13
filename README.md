@@ -4,6 +4,9 @@
 Working code that uses built modules to analyse input cell x gene matrix.
 Dataframes at interim steps are saved to disk as parquet files to avoid re-runing from start.
 
+This repo contains brain_counts.csv in gzip compressed format but the codes use the uncompressed format as input. Please extract the csb file from the gzip file.
+Data file source: https://github.com/chanzuckerberg/scRNA-python-workshop/blob/master/content/data.zip
+
 ## data_load.py
 1. read_pandas(): read input cell x gene matrix csv as pandas dataframe, melt it to get cell-gene as rows and convert both dataframes to spark df.
 2. read_spark(): read input cell x gene matrix csv as spark dataframe, melt it to get cell-gene as rows. Also writes the two dfs to disk as parquet format so that this function need to be called again.
