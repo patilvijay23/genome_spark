@@ -1,10 +1,10 @@
 # genome_spark
 
 ## genome_analysis.py
-Working code that uses built modules to analyse input cell x gene matrix.
-Dataframes at interim steps are saved to disk as parquet files to avoid re-runing from start.
+Working code that uses built modules to analyze input cell x gene matrix.
+Dataframes at interim steps are saved to disk as parquet files to avoid re-running from start.
 
-This repo contains brain_counts.csv in gzip compressed format but the codes use the uncompressed format as input. Please extract the csb file from the gzip file.
+This repo contains brain_counts.csv in gzip compressed format but the codes use the uncompressed format as input. Please extract the csv file from the gzip file.
 Data file source: https://github.com/chanzuckerberg/scRNA-python-workshop/blob/master/content/data.zip
 
 ## data_load.py
@@ -19,5 +19,5 @@ Creates `analyses` directory for writing qc outputs.
 
 ## data_normalize.py
 Two methods to normalize the input, filtered data
-1. norm_quantile(): Takes tall-format genome dataframe and returns quantile normalized, wide-format genes matrix dataframe. Quantile normalization done withtout reference distribution and the values are set to avg. at each rank.
+1. norm_quantile(): Takes tall-format genome dataframe and returns quantile normalized, wide-format genes matrix dataframe. Quantile normalization done without reference distribution and the values are set to avg. at each rank.
 2. norm_global(): Takes tall-format genome dataframe and returns global normalized, wide-format genes matrix dataframe. Global normalization is similar to converting to CPM. It divides each gene value for a cell by sum of all values for that cell. This is then multiplied by scaling factor (10,000) and we take log(1+v).
