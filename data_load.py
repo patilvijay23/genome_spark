@@ -1,0 +1,98 @@
+from pyspark.context import SparkContext
+from pyspark.sql.session import SparkSession
+import pyspark.sql.functions as F
+
+import pandas as pd
+import os
+
+from helper_functions import melt_spark
+
+sc = SparkContext.getOrCreate()
+spark = SparkSession(sc)
+
+def read_pandas(path_to_file):
+    '''
+    Pandas funtion to read the input cell x gene CSV file and create spark dataframes.
+
+    This function creates TWO output spark dataframmes:
+        - One in wide format same as input, and
+        - One in tall format with gene columns melted as spark works better with tall format
+        - Required column name fixes are applied as well
+    
+    :param path_to_file: path to input CSV file (cell x gene matrix). e.g. 'C:/data/brain_counts.csv'. First column in the input file should be cell names.
+
+    :return: wide-format spark data-frame `df` and tall-format spark data-frame `df_melt`. Column name fixes applied.
+    '''
+    df = pd.read_csv(path_to_file)
+
+    # rename first column to 'cell'
+    df = df.rename(columns={df.columns[0]:'cell'})
+
+    # remove ., space, (, ) from column names as it causes issues in spark
+    cols_rename = {cols:cols.replace('.','_').replace(' ','_').replace('(','_').replace(')','_') \
+        for cols in df.columns if '.' in cols or ' ' in cols or '(' in cols or ')' in cols}
+    df = df.rename(columns=cols_rename)
+
+    # melt to tall
+    df_melt = pd.melt(df,id_vars=['cell'],value_vars=df.columns[1:])
+
+    # convert to spark data-frames
+    df = spark.createDataFrame(df)
+    df_melt = spark.createDataFrame(df_melt)
+
+    return df, df_melt
+
+
+def read_spark(path_to_file,write_to_disk=True):
+    '''
+    Spark function to read the input cell x gene CSV file and create spark dataframes.
+    
+    This function creates TWO output spark dataframmes:
+        - One in wide format same as input, and
+        - One in tall format with gene columns melted as spark works better with tall format
+        - Required column name fixes are applied as well
+    
+    Note: this function may not work with less memory. In that case, use read_pandas().
+
+    :param path_to_file: path to input CSV file (cell x gene matrix). e.g. 'C:/data/brain_counts.csv'. First column in the input file should be cell names.
+    :param write_to_disk: Boolean determining whether to write df and df_melt as parquet to disk. This breaks lineage from csv file. Data written to 'interim' folder in code directory.
+
+    :return: wide-format spark data-frame `df` and tall-format spark data-frame `df_melt`. Column name fixes applied.
+    '''
+    if write_to_disk:
+        print('write_to_disk is set to True. df and df_melt will be written as parquet to ./interim/')
+        try: os.mkdir('interim')
+        except: print('  directory `interim` already exists')
+    else:
+        print('write_to_disk is set to False. df & df_melt will not be saved to disk.')
+
+    
+    df = spark.read.csv(path_to_file, header=True, inferSchema=True, maxColumns=30000)
+
+    # rename first column to 'cell'
+    df = df.withColumnRenamed(df.columns[0],'cell')
+
+    # remove ., space, (, ) from column names as it causes issues in spark (invalid characters: " ,;{}()\\n\\t=")
+    cols_rename = [cols for cols in df.columns if '.' in cols or ' ' in cols or '(' in cols or ')' in cols]
+    for cols in cols_rename:
+        df = df.withColumnRenamed(cols, cols.replace('.','_').replace(' ','_').replace('(','_').replace(')','_'))
+
+    # persist the table; remove this step if it causes memory issues
+    df = df.persist()
+    df.count()
+
+    # melt to tall
+    df_melt = melt_spark(df,id_vars=['cell'], value_vars=df.drop('cell').columns)
+    df_melt = df_melt.repartition(200)
+    df_melt = df_melt.persist()
+    df_melt.count()
+
+    if write_to_disk:
+        # parquet dump for interim tables
+        df.write.parquet('./interim/df/', mode='overwrite')
+        df_melt.write.parquet('./interim/df_melt/', mode='overwrite')
+        # read the files
+        df= spark.read.parquet('./interim/df/')
+        df_melt = spark.read.parquet('./interim/df_melt/')
+
+    return df, df_melt
