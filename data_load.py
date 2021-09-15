@@ -96,3 +96,62 @@ def read_spark(path_to_file,write_to_disk=True):
         df_melt = spark.read.parquet('./interim/df_melt/')
 
     return df, df_melt
+
+
+def read_spark_t(path_to_file,write_to_disk=True):
+    '''
+    Spark function to read the input gene x cell (transposed) CSV file and create spark dataframes.
+    
+    This function creates TWO output spark dataframmes:
+        - One in wide format same as input, and
+        - One in tall format with gene columns melted as spark works better with tall format
+        - Required column name fixes are applied as well
+    
+    Note: this function may not work with less memory. In that case, use read_pandas().
+
+    :param path_to_file: path to input transposed CSV file (gene x cell matrix). e.g. 'C:/data/brain_counts.csv'. First column in the input file should be cell names.
+    :param write_to_disk: Boolean determining whether to write df and df_melt as parquet to disk. This breaks lineage from csv file. Data written to 'interim' folder in code directory.
+
+    :return: wide-format spark data-frame `df` and tall-format spark data-frame `df_melt`. Column name fixes applied.
+    '''
+    if write_to_disk:
+        print('write_to_disk is set to True. df and df_melt will be written as parquet to ./interim/')
+        try: os.mkdir('interim')
+        except: print('  directory `interim` already exists')
+    else:
+        print('write_to_disk is set to False. df & df_melt will not be saved to disk.')
+
+    
+    df = spark.read.csv(path_to_file, header=True, inferSchema=True, maxColumns=30000)
+
+    # rename first column to 'cell'
+    df = df.withColumnRenamed(df.columns[0],'gene')
+
+    # remove ., space, (, ) from column names as it causes issues in spark (invalid characters: " ,;{}()\\n\\t=")
+    cols_rename = [cols.replace('.','_').replace(' ','_').replace('(','_').replace(')','_') for cols in df.columns]
+    df = df.toDF(*cols_rename)
+    
+    # remove ., space, (, ) from gene column
+    df = df.withColumn('gene',F.regexp_replace(F.col('gene'), '[.\s()]', '_'))
+
+    # persist the table; remove this step if it causes memory issues
+    df = df.persist()
+    df.count()
+
+    # melt to tall
+    df_melt = melt_spark(df,id_vars=['gene'], value_vars=df.drop('gene').columns)
+    df_melt = df_melt.repartition(200)
+    df_melt = df_melt.persist()
+    df_melt.count()
+    df_melt = df_melt.withColumnRenamed('variable','cell')
+    df_melt = df_melt.withColumnRenamed('gene','variable')
+
+    if write_to_disk:
+        # parquet dump for interim tables
+        df.write.parquet('./interim/df/', mode='overwrite')
+        df_melt.write.parquet('./interim/df_melt/', mode='overwrite')
+        # read the files
+        df= spark.read.parquet('./interim/df/')
+        df_melt = spark.read.parquet('./interim/df_melt/')
+
+    return df, df_melt

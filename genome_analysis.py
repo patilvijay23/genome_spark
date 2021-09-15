@@ -5,14 +5,20 @@ import pyspark.sql.functions as F
 
 import pandas as pd
 
-from data_load import read_spark
+from data_load import read_spark, read_spark_t
 from data_filter import qc_matrix_cells, qc_matrix_genes, filter_matrix
 from data_normalize import norm_quantile, norm_global
 
-path_to_file = "./data/brain_counts.csv"
+path_to_file = "./../brain_counts.csv"
 
-# load csv data
-df, df_melt = read_spark(path_to_file)
+# transpose to gene x cell to manage memory requirement
+df = pd.read_csv(path_to_file, index_col=0)
+df = df.transpose()
+df.to_csv(path_to_file.split('.csv')[0]+'_t.csv')
+
+# load csv data (update path_to_file to transposed csv if required)
+path_to_file = "./../brain_counts_t.csv"
+df, df_melt = read_spark_t(path_to_file)
 
 # or, read pre-loaded data written to disk
 df= spark.read.parquet('./interim/df/')
