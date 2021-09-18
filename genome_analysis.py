@@ -43,21 +43,29 @@ df_melt_flt = spark.read.parquet('./interim/df_melt_flt/')
 {'cells':df_melt_flt.select('cell').drop_duplicates().count(),
 'genes':df_melt_flt.select('variable').drop_duplicates().count()}
 
-# Normalization
+# Normalization: output is wide-format
 df_norm = norm_quantile(df_melt_flt)
 
 # write norm df to drive
 df_norm.write.parquet('./interim/df_norm/', mode='overwrite')
 df_norm = spark.read.parquet('./interim/df_norm/')
 
+# count check
+{'cells (row count)':df_norm.count(),
+'genes (column count)':len(df_norm.columns)}
+
 # df_norm_g = norm_global(df_melt_flt)
 # df_norm_g.write.parquet('./interim/df_norm_g/', mode='overwrite')
 # df_norm_g = spark.read.parquet('./interim/df_norm_g/')
 
-# PCA
+# Join with metadata
 
 
-# clustering
+# PCA- output df has the PCA components as a Vector
+
+
+# clustering- takes Vector assembled column of features to perform clustering
+# (use the cluster_prep fn in case the input features aren't Vector assembled already)
 
 
 ##
