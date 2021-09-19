@@ -2,13 +2,12 @@
 # dataframes are written to disk at various stages: use these to skip starting steps when required by loading pre-processed df
 
 import pyspark.sql.functions as F
-
 import pandas as pd
 
 from data_load import read_spark, read_spark_t
 from data_filter import qc_matrix_cells, qc_matrix_genes, filter_matrix
 from data_normalize import norm_quantile, norm_global
-from dimension_reduction import pca_apply
+from dimension_reduction import pca_apply, umap_apply
 
 path_to_file = "./data/brain_counts.csv"
 
@@ -60,6 +59,24 @@ df_norm = spark.read.parquet('./interim/df_norm/')
 # df_norm_g.write.parquet('./interim/df_norm_g/', mode='overwrite')
 # df_norm_g = spark.read.parquet('./interim/df_norm_g/')
 
+df_norm = df_norm.persist()
+df_norm.count()
+
+# PCA- output df has the PCA components as a Vector
+df_pca = pca_apply(df_norm,k=50)
+
+df_pca.write.parquet('./interim/df_pca/', mode='overwrite')
+df_pca = spark.read.parquet('./interim/df_pca/')
+
+# UMAP
+df_umap = umap_apply(df_norm, n_components=50)
+
+df_umap.write.parquet('./interim/df_umap/', mode='overwrite')
+df_umap = spark.read.parquet('./interim/df_umap/')
+
+# clustering- takes Vector assembled column of features to perform clustering
+# (use the cluster_prep fn in case the input features aren't Vector assembled already)
+
 # Join with metadata
 ## Load
 df_metadata = spark.read.csv('./data/brain_metadata.csv', header=True, inferSchema=True)
@@ -70,19 +87,7 @@ df_metadata = df_metadata.toDF(*cols_rename)
 df_metadata = df_metadata.withColumn('cell',F.regexp_replace(F.col('cell'), '[.\s()]', '_'))
 
 ## join
-df_norm = df_norm.join(df_metadata, on=['cell'],how='left')
-df_norm = df_norm.persist()
-df_norm.count()
-
-# PCA- output df has the PCA components as a Vector
-df_pca = pca_apply(df_norm,k=10)
-
-df_pca.write.parquet('./interim/df_pca/', mode='overwrite')
-df_pca = spark.read.parquet('./interim/df_pca/')
-
-# clustering- takes Vector assembled column of features to perform clustering
-# (use the cluster_prep fn in case the input features aren't Vector assembled already)
-
+df_pca = df_pca.join(df_metadata, on=['cell'],how='left')
 
 ##
 # QC checks on the data flow

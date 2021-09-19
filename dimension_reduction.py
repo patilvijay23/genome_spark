@@ -2,13 +2,19 @@ import pyspark.sql.functions as F
 from pyspark.sql import Window
 from pyspark.ml.feature import PCA, VectorAssembler, StringIndexer
 from pyspark.ml import Pipeline
+from pyspark.context import SparkContext
+from pyspark.sql.session import SparkSession
+sc = SparkContext.getOrCreate()
+spark = SparkSession(sc)
+
 import pandas as pd
 import numpy as np
+import umap
 
 def pca_apply(df_norm,k=2):
     '''
-    Takes wide-format genome dataframe (direct or nromalized) and returns vectorized PCA components.
-    Number of components ste via k.
+    Takes wide-format genome dataframe (direct or normalized) and returns vectorized PCA components.
+    Number of components set via k.
     Prints variance explained by each component.
         
     :param df_norm: wide-format spark Dataframe (cell x gene). column names should be ['cell', gene names...]
@@ -53,3 +59,35 @@ def pca_apply(df_norm,k=2):
     
     df = df.select('cell','components')
     return df
+
+def umap_apply(df_norm, n_components=2, n_neighbors=15, min_dist=0.1, metric='euclidean'):
+    '''
+    Takes wide-format genome dataframe (direct or normalized) and returns UMAP components.
+    Number of components set via n_components.
+    Input is converted to pandas df to use in UMAP and output is converted to spark df before returning.
+    Ref: https://umap-learn.readthedocs.io/en/latest/
+
+    :param df_norm: wide-format spark Dataframe (cell x gene). column names should be ['cell', gene names...]
+    Should only contain numerical columns apart from 'cell' col
+        
+    :return: df spark DataFrame with UMAP components
+    '''
+    reducer = umap.UMAP(
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        n_components=n_components,
+        metric=metric
+    )
+    df = df_norm.toPandas()
+    embedding = reducer.fit_transform(df.drop('cell',axis=1).values)
+    print('embedding shape:', embedding.shape)
+    df_umap = pd.DataFrame(data=embedding, columns=range(n_components))
+    df_umap['cell'] = df['cell']
+    try:
+        df_umap.to_csv('./interim/df_umap_temp.csv', index=False)
+        df_umap_spark = spark.read.csv('./interim/df_umap_temp.csv', header=True, inferSchema=True)
+    except:
+        df_umap.to_csv('df_umap_temp.csv', index=False)
+        df_umap_spark = spark.read.csv('df_umap_temp.csv', header=True, inferSchema=True)
+
+    return df_umap_spark
