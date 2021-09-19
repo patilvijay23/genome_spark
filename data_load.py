@@ -73,9 +73,11 @@ def read_spark(path_to_file,write_to_disk=True):
     df = df.withColumnRenamed(df.columns[0],'cell')
 
     # remove ., space, (, ) from column names as it causes issues in spark (invalid characters: " ,;{}()\\n\\t=")
-    cols_rename = [cols for cols in df.columns if '.' in cols or ' ' in cols or '(' in cols or ')' in cols]
-    for cols in cols_rename:
-        df = df.withColumnRenamed(cols, cols.replace('.','_').replace(' ','_').replace('(','_').replace(')','_'))
+    cols_rename = [cols.replace('.','_').replace(' ','_').replace('(','_').replace(')','_') for cols in df.columns]
+    df = df.toDF(*cols_rename)
+
+    # remove ., space, (, ) from cell column
+    df = df.withColumn('cell',F.regexp_replace(F.col('cell'), '[.\s()]', '_'))
 
     # persist the table; remove this step if it causes memory issues
     df = df.persist()
