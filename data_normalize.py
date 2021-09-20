@@ -13,6 +13,10 @@ def norm_quantile(df_melt):
     # add the rank cols: rank_compute for getting avgs, rank_assign for assigning norm. vals
     # rank_compute is without any gaps and continous to ensure every rank has values from each gene
     # rank_assign assigns same rank for ties and then skips ranks when moving to next value
+    
+    # remove ERCC
+    df_melt = df_melt.where(~F.lower(F.col('variable')).contains('ercc'))
+
     df_melt = df_melt.withColumn(
         'rank_compute', F.row_number().over(Window.orderBy('value').partitionBy('variable')))
     df_melt = df_melt.withColumn(
@@ -38,20 +42,23 @@ def norm_quantile(df_melt):
 def norm_global(df_melt):
     '''
     Takes tall-format genome dataframe and returns global normalized, wide-format genes matrix dataframe.
-    Global normalization is similar to converting to CPM. It dividies each gene value for a cell by sum of all values for that cell.
+    Global normalization is similar to converting to CPM. It dividies each gene value for a cell by sum of all values for that gene.
     This is then multiplied by scaling factor (10,000) and we take log(1+v).
         
     :param df_melt: tall-format spark Dataframe (post filtering). column names should be ['cell','variable','value']
         
     :return: df spark DataFrame with normalized gene values
     '''
+    # remove ERCC
+    df_melt = df_melt.where(~F.lower(F.col('variable')).contains('ercc'))
+    
     # get global sum to use for norm.: sums up all gene values per cell (i.e. sums up columns from the cell x gene matrix)
-    df_norm = df_melt.groupBy('cell').agg(F.sum('value').alias('sum_value'))
+    df_norm = df_melt.groupBy('variable').agg(F.sum('value').alias('sum_value'))
     df_norm = df_norm.persist()
     df_norm.count()
 
     # join back norm values
-    df_melt = df_melt.join(df_norm, on=['cell'], how='left')
+    df_melt = df_melt.join(df_norm, on=['variable'], how='left')
     df_melt = df_melt.withColumn('norm_value', F.log(1+10000*(F.col('value')/F.col('sum_value'))))
     df_melt = df_melt.select('cell','variable','norm_value')
     # pivot to wide format
