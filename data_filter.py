@@ -37,6 +37,12 @@ def qc_matrix_cells(df_melt):
     df_melt = df_melt.withColumn(
         'sum_of_ercc',
         F.when(F.lower(F.col('variable')).contains('ercc'),F.col('value')).otherwise(0))
+    df_melt = df_melt.withColumn(
+        'total_number_of_MT_entry',
+        F.when((F.lower(F.col('variable')).contains('mt')) & (F.col('value')>0),1).otherwise(0))
+    df_melt = df_melt.withColumn(
+        'sum_of_mt',
+        F.when(F.lower(F.col('variable')).contains('mt'),F.col('value')).otherwise(0))
 
     # aggregate to 1 row per cell
     df_agg= df_melt.groupBy('cell').agg(
@@ -44,15 +50,21 @@ def qc_matrix_cells(df_melt):
         F.avg('value').alias('average_of_sum'),
         F.sum('total_number_of_columns').alias('total_number_of_columns'),
         F.sum('total_number_of_ERCC_entry').alias('total_number_of_ERCC_entry'),
-        F.sum('sum_of_ercc').alias('sum_of_ercc'))
+        F.sum('sum_of_ercc').alias('sum_of_ercc'),
+        F.sum('total_number_of_MT_entry').alias('total_number_of_MT_entry'),
+        F.sum('sum_of_mt').alias('sum_of_mt'))
     
     # other cols
     df_agg = df_agg.withColumn(
         'percentage_of_ercc', (F.col('sum_of_ercc')/F.col('sum_of_all_entries'))*100)
     df_agg = df_agg.withColumn(
+        'percentage_of_mt', (F.col('sum_of_mt')/F.col('sum_of_all_entries'))*100)
+    df_agg = df_agg.withColumn(
         'log1p_of_sum_of_all_entries', F.log(1+F.col('sum_of_all_entries')))
     df_agg = df_agg.withColumn(
         'log1p_of_sum_of_ercc', F.log(1+F.col('sum_of_ercc')))
+    df_agg = df_agg.withColumn(
+        'log1p_of_sum_of_mt', F.log(1+F.col('sum_of_mt')))
     
     return df_agg
 
