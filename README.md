@@ -29,6 +29,19 @@ Two methods for dimensionality reduction.
 1. `pca_apply()`: Uses spark implementation of PCA. Prints variance of individual components, cumulative variance and total variance and returns PCA transformed df. Printed variances can be used for visualization of explained variance, or the function can be updated to return the variance as as array.
 Extract required PCA components from the output Vector to plot them.
 2. `umap_apply()`: Uses python implementation of UMAP as it is not available in Spark. Input is wide format (cell x gene) spark df and output is wide format cell x components spark df.
+3. `tsne_apply()`: Uses python sklearn implementation of t-sne as it is not available in Spark. Input is wide format (cell x gene) spark df and output is wide format cell x components spark df.
+
+## clustering_functions.py
+Functions for data prep and k-means clustering.
 
 # Requirements for Python
+Create a Python 3.8 environment using the requirements.txt file.
+
+Commands for conda:
+> `conda create -n genome python=3.8`
+
+Switch to the env
+> `conda activate genome`
+
+Install dependencies
 > `pip install -r requirements.txt`
