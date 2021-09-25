@@ -137,7 +137,7 @@ def filter_matrix(df_melt, df_qc_cells=None, df_qc_genes=None):
     '''
     if df_qc_cells:
         # check if ercc genes are present
-        ercc_gene_count = df_melt.where(F.lower(F.col('variable')).contains('ercc')).count().collect()[0][0]
+        ercc_gene_count = df_melt.where(F.lower(F.col('variable')).contains('ercc')).count()
         if ercc_gene_count>0:
             print('ercc genes present, applying filter')
             df_qc_cells = df_qc_cells.withColumn(

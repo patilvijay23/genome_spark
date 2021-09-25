@@ -23,7 +23,7 @@ df.to_csv(path_to_file.split('.csv')[0]+'_t.csv')
 path_to_file = "./data/brain_counts_t.csv"
 df, df_melt = read_spark_t(path_to_file)
 
-# or, read pre-loaded data written to disk
+# or, read pre-loaded data written to disk in the read_spark/read_spark_t fns
 df= spark.read.parquet('./interim/df/')
 df_melt = spark.read.parquet('./interim/df_melt/')
 
@@ -36,7 +36,7 @@ df_qc_genes = qc_matrix_genes(df_melt)
 df_qc_genes.toPandas().to_csv('./analyses/qc_genes.csv', index=False)
 
 # filter the genome data using output from the above two qc fns
-df_melt_flt = filter_matrix(df_melt,None,df_qc_genes)
+df_melt_flt = filter_matrix(df_melt,df_qc_cells,df_qc_genes)
 
 # write filtered df_melt to drive
 df_melt_flt.write.parquet('./interim/df_melt_flt/', mode='overwrite')
