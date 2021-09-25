@@ -3,11 +3,14 @@
 
 import pyspark.sql.functions as F
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from data_load import read_spark, read_spark_t
 from data_filter import qc_matrix_cells, qc_matrix_genes, filter_matrix
 from data_normalize import norm_quantile, norm_global
-from dimension_reduction import pca_apply, umap_apply
+from dimension_reduction import pca_apply, umap_apply, tsne_apply
+from clustering_functions import cluster_data_prep, k_means_spark
 
 path_to_file = "./data/brain_counts.csv"
 
@@ -49,7 +52,6 @@ df_norm = norm_quantile(df_melt_flt)
 # write norm df to drive
 df_norm.write.parquet('./interim/df_norm/', mode='overwrite')
 df_norm = spark.read.parquet('./interim/df_norm/')
-# df_norm = df_norm.repartition(50)
 
 # count check
 {'cells (row count)':df_norm.count(),
@@ -74,10 +76,13 @@ df_umap = umap_apply(df_norm, n_components=50)
 df_umap.write.parquet('./interim/df_umap/', mode='overwrite')
 df_umap = spark.read.parquet('./interim/df_umap/')
 
-# clustering- takes Vector assembled column of features to perform clustering
-# (use the cluster_prep fn in case the input features aren't Vector assembled already)
+# t-sne
+df_tsne = tsne_apply(df_norm, n_components=50)
 
-# Join with metadata
+df_tsne.write.parquet('./interim/df_tsne/', mode='overwrite')
+df_tsne = spark.read.parquet('./interim/df_tsne/')
+
+# Join with metadata: use the below logic to join any of the previous dfs with metadata as required
 ## Load
 df_metadata = spark.read.csv('./data/brain_metadata.csv', header=True, inferSchema=True)
 
@@ -88,6 +93,44 @@ df_metadata = df_metadata.withColumn('cell',F.regexp_replace(F.col('cell'), '[.\
 
 ## join
 df_pca = df_pca.join(df_metadata, on=['cell'],how='left')
+
+# df_tsne = df_tsne.join(df_metadata, on=['cell'],how='left')
+
+
+# Visualization
+
+## indexes for components to visualize
+## - starts at 0; x_comp=0 and y_comp=1 plots first component on x-axis and second component on y-axis
+## - update as required
+
+x_comp = 0
+y_comp = 1
+
+# extract components- PCA (only required for PCA as PCA output is Spark Vector)
+df_plot = df_pca.toPandas()
+
+df_plot['x_comp'] = df_plot['components'].apply(lambda x: x[x_comp])
+df_plot['y_comp'] = df_plot['components'].apply(lambda x: x[y_comp])
+
+# plot PCA: update the 'hue' column as required, or skip it if not required
+plt.figure(figsize=(15,15))
+sns.scatterplot(x=df_plot['x_comp'], y=df_plot['y_comp'], hue=df_plot['subtissue'])
+plt.show()
+
+# extract components- UMAP/t-sne: update the select statement to skip/update the coloring col (subtissue)
+df_plot = df_tsne.select(['cell',str(x_comp), str(y_comp),'subtissue']).toPandas()
+
+# plot UMAP/t-sne
+plt.figure(figsize=(15,15))
+sns.scatterplot(x=df_plot[str(x_comp)], y=df_plot[str(y_comp)], hue=df_plot['subtissue'])
+plt.show()
+
+
+# clustering- takes Vector assembled column of features to perform clustering
+# (use the cluster_prep fn in case the input features aren't Vector assembled already- only PCA is already vectorized)
+
+
+
 
 ##
 # QC checks on the data flow

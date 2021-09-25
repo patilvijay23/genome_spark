@@ -9,6 +9,7 @@ spark = SparkSession(sc)
 
 import pandas as pd
 import numpy as np
+from sklearn.manifold import TSNE
 import umap
 
 def pca_apply(df_norm,k=2):
@@ -91,3 +92,36 @@ def umap_apply(df_norm, n_components=2, n_neighbors=15, min_dist=0.1, metric='eu
         df_umap_spark = spark.read.csv('df_umap_temp.csv', header=True, inferSchema=True)
 
     return df_umap_spark
+
+def tsne_apply(df_norm, n_components=2, n_neighbors=30, metric='euclidean'):
+    '''
+    Takes wide-format genome dataframe (direct or normalized) and returns t-sne components.
+    Number of components set via n_components.
+    Input is converted to pandas df to use in t-sne and output is converted to spark df before returning.
+
+    :param df_norm: wide-format spark Dataframe (cell x gene). column names should be ['cell', gene names...]
+    Should only contain numerical columns apart from 'cell' col
+        
+    :return: df spark DataFrame with t-sne components
+    '''
+    reducer = TSNE(
+        n_components=n_components,
+        init='pca',
+        random_state=0,
+        metric=metric,
+        perplexity=float(n_neighbors),
+        method='exact'
+    )
+    df = df_norm.toPandas()
+    embedding = reducer.fit_transform(df.drop('cell',axis=1).values)
+    print('embedding shape:', embedding.shape)
+    df_tsne = pd.DataFrame(data=embedding, columns=range(n_components))
+    df_tsne['cell'] = df['cell']
+    try:
+        df_tsne.to_csv('./interim/df_tsne_temp.csv', index=False)
+        df_tsne_spark = spark.read.csv('./interim/df_tsne_temp.csv', header=True, inferSchema=True)
+    except:
+        df_tsne.to_csv('df_tsne_temp.csv', index=False)
+        df_tsne_spark = spark.read.csv('df_tsne_temp.csv', header=True, inferSchema=True)
+
+    return df_tsne_spark
