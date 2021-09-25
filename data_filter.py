@@ -118,8 +118,12 @@ def filter_matrix(df_melt, df_qc_cells=None, df_qc_genes=None):
     '''
     Takes tall-format genome dataframe, the two QC dataframes and returns tall-format genome dataframe.
     Filters applied:
-        - Remove `cells` with percentage_of_ercc<10%
-        - Remove `cells` with less than 10 genes > 0 (total_number_of_columns)
+        If ERCC columns present:
+            - Remove `cells` with percentage_of_ercc<10%
+            - Remove `cells` with less than 10 genes > 0 (total_number_of_columns)
+        If ERCC columns not present:
+            - Remove `cells` with percentage_of_mito<5%
+            - Remove `cells` with less than 10 genes > 0 (total_number_of_columns)
     and/or
         - Remove `genes` with pct_dropout_by_counts>70%
         - Remove `genes` with no_cells_by_counts<3
@@ -132,10 +136,20 @@ def filter_matrix(df_melt, df_qc_cells=None, df_qc_genes=None):
     :return: filtered df_melt dataframe
     '''
     if df_qc_cells:
-        df_qc_cells = df_qc_cells.withColumn(
-            'remove_cells',
-            F.when(F.col('percentage_of_ercc')<10,1).otherwise(
-            F.when(F.col('total_number_of_columns')<10,1).otherwise(0)))
+        # check if ercc genes are present
+        ercc_gene_count = df_melt.where(F.lower(F.col('variable')).contains('ercc')).count().collect()[0][0]
+        if ercc_gene_count>0:
+            print('ercc genes present, applying filter')
+            df_qc_cells = df_qc_cells.withColumn(
+                'remove_cells',
+                F.when(F.col('percentage_of_ercc')<10,1).otherwise(
+                F.when(F.col('total_number_of_columns')<10,1).otherwise(0)))
+        else:
+            print('ercc genes not present, applying "mito" filter')
+            df_qc_cells = df_qc_cells.withColumn(
+                'remove_cells',
+                F.when(F.col('percentage_of_mito')<5,1).otherwise(
+                F.when(F.col('total_number_of_columns')<10,1).otherwise(0)))
         print('cells to be removed:', df_qc_cells.groupBy().agg(F.sum('remove_cells')).collect()[0][0],'of',df_qc_cells.count())
         df_qc_cells = df_qc_cells.where(F.col('remove_cells')==0).select('cell')
     else:
