@@ -57,9 +57,9 @@ df_norm = spark.read.parquet('./interim/df_norm/')
 {'cells (row count)':df_norm.count(),
 'genes (column count)':len(df_norm.columns)}
 
-# df_norm_g = norm_global(df_melt_flt)
-# df_norm_g.write.parquet('./interim/df_norm_g/', mode='overwrite')
-# df_norm_g = spark.read.parquet('./interim/df_norm_g/')
+# df_norm = norm_global(df_melt_flt)
+# df_norm.write.parquet('./interim/df_norm/', mode='overwrite')
+# df_norm = spark.read.parquet('./interim/df_norm/')
 
 df_norm = df_norm.persist()
 df_norm.count()
@@ -125,11 +125,49 @@ plt.figure(figsize=(15,15))
 sns.scatterplot(x=df_plot[str(x_comp)], y=df_plot[str(y_comp)], hue=df_plot['subtissue'])
 plt.show()
 
-
 # clustering- takes Vector assembled column of features to perform clustering
-# (use the cluster_prep fn in case the input features aren't Vector assembled already- only PCA is already vectorized)
+## (use the cluster_prep fn in case the input features aren't Vector assembled already- only PCA is already vectorized)
 
+# df_clust = df_pca # in case no extra steps were performed on PCA output df
+# df_clust = cluster_data_prep(df_pca) # in case there are more columns added apart from the PCA output
 
+# df_clust = cluster_data_prep(df_tsne)
+
+df_clust = cluster_data_prep(df_umap.select('cell','0','1'))
+df_clust.show(5)
+
+# loop on k-means to determine optimum k
+eval_list = []
+for k in range(2,21):
+    kmeans_model, predictions, eval_metrics =\
+        k_means_spark(df_clust, k=k)
+    eval_list.append(eval_metrics)
+
+#
+eval_list = pd.DataFrame(data=eval_list, columns=['k','silhouette','sse'])
+eval_list.head()
+
+# plot elbow curve
+plt.figure(figsize=(15,15))
+sns.lineplot(x=eval_list['k'], y=eval_list['sse'])
+plt.show()
+
+# pick optimum k and perform clustering
+kmeans_model, predictions, eval_metrics = k_means_spark(df_clust, k=7)
+
+# see the cluster labels added to the data
+predictions.show(5)
+
+# plot the cluster output
+x_comp = 0
+y_comp = 1
+
+df_plot = df_umap.join(predictions.select('cell','prediction'),on=['cell'],how='left')
+df_plot = df_plot.select(['cell',str(x_comp),str(y_comp),'prediction']).toPandas()
+
+plt.figure(figsize=(15,15))
+sns.scatterplot(x=df_plot[str(x_comp)], y=df_plot[str(y_comp)], hue=df_plot['prediction'], palette='deep')
+plt.show()
 
 
 ##
