@@ -50,7 +50,7 @@ def cluster_data_prep(df):
 def k_means_spark(df, k=2, featuresCol='features', predictionsCol='prediction', getSilhouette=False, seed=125):
     """
     pass vector assembled df to get k-means clustering
-    Silhoutte score is computed basis getSilhouette param
+    Silhouette score is computed basis getSilhouette param
 
     returns kmeans_model, predictions df and tuple of (k, silhouette score, sse score)
     """

@@ -34,6 +34,9 @@ Extract required PCA components from the output Vector to plot them.
 ## clustering_functions.py
 Functions for data prep and k-means clustering.
 
+## differential_expression.py
+t-test based selection of top variables that are different between chosen cluster and rest of the data.
+
 # Requirements for Python
 Create a Python 3.8 environment using the requirements.txt file.
 

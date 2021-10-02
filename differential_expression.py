@@ -7,12 +7,12 @@ from scipy.stats import t
 def diff_expr_top_n(df_melt_flt, cluster_id=0, n=10):
     '''
     Take filtered tall-format dataframe, cluster_id of interest and n as inputs
-    Find top n differnetially expressed genes in vs out cluster_id
+    Find top n differentially expressed genes in vs out cluster_id
     Uses p-value from two-tailed Independent two-sample t-test to determine top 10 significant genes.
 
-    Actual genes output as significantly different may be less than n if the 5% significane is not met
+    Actual genes output as significantly different may be less than n if the 5% significance is not met
 
-    scipy is used to get the final p-value from the estimeted t test.
+    scipy is used to get the final p-value from the estimated t test.
 
     returns dictionary of top N gene:p-value- {gene1:p-value1, gene2:p-value2, ...}
     '''
@@ -62,7 +62,7 @@ def diff_expr_top_n(df_melt_flt, cluster_id=0, n=10):
     df_ttest_p.count()
     
     # filter for 5% significance & sort using p-value to get top N genes
-    # p-value can be used directly because we are using p-values from tests on same two sets which means smaple sizes and df are same
+    # p-value can be used directly because we are using p-values from tests on same two sets which means sample sizes and df are same
     df_ttest_p = df_ttest_p.where(F.col('p_val')<=0.05)
 
     df_ttest_p = df_ttest_p.withColumn('rank', F.row_number().over(Window.orderBy(F.col('p_val'))))

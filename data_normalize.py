@@ -11,7 +11,7 @@ def norm_quantile(df_melt):
     :return: df spark DataFrame with normalized gene values
     '''
     # add the rank cols: rank_compute for getting avgs, rank_assign for assigning norm. vals
-    # rank_compute is without any gaps and continous to ensure every rank has values from each gene
+    # rank_compute is without any gaps and continuous to ensure every rank has values from each gene
     # rank_assign assigns same rank for ties and then skips ranks when moving to next value
     
     # remove ERCC
@@ -42,7 +42,7 @@ def norm_quantile(df_melt):
 def norm_global(df_melt):
     '''
     Takes tall-format genome dataframe and returns global normalized, wide-format genes matrix dataframe.
-    Global normalization is similar to converting to CPM. It dividies each gene value for a cell by sum of all values for that gene.
+    Global normalization is similar to converting to CPM. It divides each gene value for a cell by sum of all values for that gene.
     This is then multiplied by scaling factor (10,000) and we take log(1+v).
         
     :param df_melt: tall-format spark Dataframe (post filtering). column names should be ['cell','variable','value']

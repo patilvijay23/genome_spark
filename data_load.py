@@ -12,7 +12,7 @@ spark = SparkSession(sc)
 
 def read_pandas(path_to_file):
     '''
-    Pandas funtion to read the input cell x gene CSV file and create spark dataframes.
+    Pandas function to read the input cell x gene CSV file and create spark dataframes.
 
     This function creates TWO output spark dataframmes:
         - One in wide format same as input, and
