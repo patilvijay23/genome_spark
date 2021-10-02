@@ -11,6 +11,7 @@ from data_filter import qc_matrix_cells, qc_matrix_genes, filter_matrix
 from data_normalize import norm_quantile, norm_global
 from dimension_reduction import pca_apply, umap_apply, tsne_apply
 from clustering_functions import cluster_data_prep, k_means_spark
+from differential_expression import diff_expr_top_n
 
 path_to_file = "./data/brain_counts.csv"
 
@@ -158,6 +159,10 @@ kmeans_model, predictions, eval_metrics = k_means_spark(df_clust, k=7)
 # see the cluster labels added to the data
 predictions.show(5)
 
+# save cluster labels
+predictions.write.parquet('./interim/predictions/', mode='overwrite')
+predictions = spark.read.parquet('./interim/predictions/')
+
 # plot the cluster output
 x_comp = 0
 y_comp = 1
@@ -169,6 +174,26 @@ plt.figure(figsize=(15,15))
 sns.scatterplot(x=df_plot[str(x_comp)], y=df_plot[str(y_comp)], hue=df_plot['prediction'], palette='deep')
 plt.show()
 
+# differential expression of selected genes across clusters
+## this uses post-QC pre-norm data- df_melt_flt
+df_melt_flt = spark.read.parquet('./interim/df_melt_flt/')
+predictions = spark.read.parquet('./interim/predictions/')
+
+# add cluster labels
+df_melt_flt = df_melt_flt.join(predictions.select('cell','prediction'), on=['cell'],how='left')
+
+# call the DE function for selected cluster id and N
+cluster_0_genes = diff_expr_top_n(df_melt_flt,cluster_id=0,n=10)
+cluster_1_genes = diff_expr_top_n(df_melt_flt,cluster_id=1,n=10)
+cluster_2_genes = diff_expr_top_n(df_melt_flt,cluster_id=2,n=10)
+cluster_3_genes = diff_expr_top_n(df_melt_flt,cluster_id=3,n=10)
+cluster_4_genes = diff_expr_top_n(df_melt_flt,cluster_id=4,n=10)
+cluster_5_genes = diff_expr_top_n(df_melt_flt,cluster_id=5,n=10)
+cluster_6_genes = diff_expr_top_n(df_melt_flt,cluster_id=6,n=10)
+
+# see the top 10 genes for clusters
+cluster_0_genes
+cluster_3_genes
 
 ##
 # QC checks on the data flow
@@ -178,3 +203,6 @@ genes_to_qc = ['Rnaseh2b','Suclg1']
 
 df_qc = df_melt.where((F.col('cell').isin(cells_to_qc)) | (F.col('variable').isin(genes_to_qc)))
 df_qc.toPandas().to_csv('./analyses/qc_flow_checks.csv', index=False)
+
+# t test fn checks
+df_ttest_p.where(F.col('variable')=='4833439L19Rik').show()
