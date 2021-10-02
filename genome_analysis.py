@@ -32,12 +32,15 @@ df_melt = spark.read.parquet('./interim/df_melt/')
 df_qc_cells = qc_matrix_cells(df_melt)
 df_qc_cells.toPandas().to_csv('./analyses/qc_cells.csv', index=False)
 
+# filter the genome data using cells qc
+df_melt_flt = filter_matrix(df_melt,df_qc_cells,None)
+
 # qc genes & write csv to `analyses` folder
-df_qc_genes = qc_matrix_genes(df_melt)
+df_qc_genes = qc_matrix_genes(df_melt_flt)
 df_qc_genes.toPandas().to_csv('./analyses/qc_genes.csv', index=False)
 
-# filter the genome data using output from the above two qc fns
-df_melt_flt = filter_matrix(df_melt,df_qc_cells,df_qc_genes)
+# filter the genome data using genes qc
+df_melt_flt = filter_matrix(df_melt_flt,None,df_qc_genes)
 
 # write filtered df_melt to drive
 df_melt_flt.write.parquet('./interim/df_melt_flt/', mode='overwrite')
@@ -158,6 +161,7 @@ kmeans_model, predictions, eval_metrics = k_means_spark(df_clust, k=7)
 
 # see the cluster labels added to the data
 predictions.show(5)
+predictions.groupBy('prediction').count().sort('prediction').show()
 
 # save cluster labels
 predictions.write.parquet('./interim/predictions/', mode='overwrite')
@@ -193,7 +197,10 @@ cluster_6_genes = diff_expr_top_n(df_melt_flt,cluster_id=6,n=10)
 
 # see the top 10 genes for clusters
 cluster_0_genes
+cluster_0_genes.keys()
+
 cluster_3_genes
+cluster_3_genes.keys()
 
 ##
 # QC checks on the data flow
