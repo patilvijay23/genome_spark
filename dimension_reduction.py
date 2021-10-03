@@ -20,7 +20,7 @@ def pca_apply(df_norm,k=2):
         
     :param df_norm: wide-format spark Dataframe (cell x gene). column names should be ['cell', gene names...]
         
-    :return: df spark DataFrame with vector of PCA components- components
+    :return: df spark DataFrame with vector of PCA components- components. Individual component variances and cumulative variances
     '''
     # pre-propcess input cols
     col_dtypes = pd.DataFrame(df_norm.drop('cell').dtypes, columns=['col_name','dtype'])
@@ -59,7 +59,7 @@ def pca_apply(df_norm,k=2):
     print('  Total        :', sum(model.explainedVariance))
     
     df = df.select('cell','components')
-    return df
+    return df, model.explainedVariance, np.cumsum(model.explainedVariance)
 
 def umap_apply(df_norm, n_components=2, n_neighbors=15, min_dist=0.1, metric='euclidean'):
     '''

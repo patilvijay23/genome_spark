@@ -69,10 +69,26 @@ df_norm = df_norm.persist()
 df_norm.count()
 
 # PCA- output df has the PCA components as a Vector
-df_pca = pca_apply(df_norm,k=50)
+df_pca, pca_components, pca_components_cumulative = pca_apply(df_norm,k=50)
 
 df_pca.write.parquet('./interim/df_pca/', mode='overwrite')
 df_pca = spark.read.parquet('./interim/df_pca/')
+
+# plot PCA components
+x_axis = range(len(pca_components))
+y_lim = max(pca_components_cumulative)*1.2
+
+fig, ax = plt.subplots()
+ax.bar(x_axis, pca_components, color="C0")
+ax.set_ylim([0, y_lim])
+
+ax2 = ax.twinx()
+ax2.plot(range(len(pca_components)), pca_components_cumulative, color="C1", marker="D", ms=1)
+ax2.set_ylim([0, y_lim])
+
+ax.tick_params(axis="y", colors="C0")
+ax2.tick_params(axis="y", colors="C1")
+plt.show()
 
 # UMAP
 df_umap = umap_apply(df_norm, n_components=50)
